@@ -3,6 +3,8 @@ import axios from "axios";
 import { Telegraf } from "telegraf";
 import { readFileSync, writeFileSync } from "fs";
 
+const debugChat = -4257086130;
+
 function randomIntFromInterval(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min);
 }
@@ -12,6 +14,10 @@ const delay = (interval) => {
 
 const BOT_TOKEN = "6705332486:AAFgYyZDhS32UCbadP5OzPVG_bBfyVFKFho";
 const bot = new Telegraf(BOT_TOKEN);
+
+const sendDebug = async (message: string) => {
+  await bot.telegram.sendMessage(debugChat, message);
+};
 
 const getChats = (): number[] => {
   const data = readFileSync("./chatsToSend.txt").toString();
@@ -28,7 +34,9 @@ const saveChat = (chatId: number) => {
 };
 
 bot.on("message", (ctx) => {
+  if (ctx.message.chat.id < 0) return;
   saveChat(ctx.message.chat.id);
+  ctx.reply("you're added");
 });
 
 const getServerAccommodation = async () => {
@@ -70,7 +78,13 @@ const getServerAccommodation = async () => {
 const getNewAccommodations = async () => {
   const parsedAccommodations = readFileSync("./accommodations.txt").toString();
 
-  const newAccommodations = await getServerAccommodation();
+  let newAccommodations;
+  try {
+    newAccommodations = await getServerAccommodation();
+  } catch (e) {
+    await sendDebug(`Error occurred in getNewAccommodations: ${e.message}`);
+    return [];
+  }
   const oldAccommodations =
     parsedAccommodations.length === 0 ? [] : JSON.parse(parsedAccommodations);
 
@@ -112,14 +126,15 @@ const bootstrap = async () => {
   bot.launch();
 
   while (true) {
-    const minimumInterval = 5 * 1000 * 60;
-    const maximumInterval = 10 * 1000 * 60;
+    const minimumInterval = 3 * 1000 * 60;
+    const maximumInterval = 6 * 1000 * 60;
     const interval = randomIntFromInterval(minimumInterval, maximumInterval);
-    console.log("🚀 ~ bootstrap ~ interval:", interval)
 
     const newAccommodations = await getNewAccommodations();
-    console.log("🚀 ~ bootstrap ~ newAccommodations:", newAccommodations)
     await sendNewAccommodations(newAccommodations);
+    await sendDebug(
+      `New accommodations to send: ${JSON.stringify(newAccommodations)}`
+    );
 
     await delay(interval);
   }
